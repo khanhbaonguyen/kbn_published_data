@@ -11,6 +11,7 @@ Public data files that Khanh Nguyen's websites read in the browser. Claude artif
 | `midterms-2026/tracker.json` | vietamvote.org midterm result tracker page | Race odds, Cook ratings, poll averages, proposition odds and called results. Rewritten by the Midterms 2026 Tracker refresh. |
 | `vietamvote/midterms-2026-embed.html` | vietamvote.org (pasted into a Squarespace Code Block) | Read-only tracker page that fetches `midterms-2026/tracker.json` and re-checks it every 5 minutes |
 | `vietamvote/midterms-2026.json` | nothing (unused placeholder) | Superseded by `midterms-2026/tracker.json` |
+| `scripts/kalshi_refresh.py` | the Midterms 2026 Tracker refresh (Claude routine) | Fetches Kalshi odds for every race, proposition and control market (`refresh`) and builds `midterms-2026/tracker.json` (`publish`). Market tickers live in the tracker artifact's data, not in this script. |
 
 Add a folder per site or project, one JSON file per page or feed.
 
