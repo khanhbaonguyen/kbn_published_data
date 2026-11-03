@@ -51,7 +51,7 @@
 
   <div class="vav-foot">
     <p>Races: every Cook Political Report Toss Up and Lean contest for Senate, House and Governor, plus CA-45. Kalshi odds are the midpoint of each market's bid and ask. Poll averages come from Silver Bulletin's FLIPR model; "—" means no market or polling average exists for that race.</p>
-    <p>Projected seats: seats not on this list counted by Cook lean, plus each listed race's called result, else its Kalshi favorite, else its poll leader. Called results are added on election night.</p>
+    <p>Projected seats: seats not on this list counted by Cook lean, plus each listed race's called result, else its Kalshi favorite, else its poll leader. Called results are added on election night. "Count" lines for California races and propositions are the Secretary of State's semi-official vote count; California counts ballots for weeks after Election Day.</p>
     <p>Live results: <a href="https://electionresults.sos.ca.gov/" target="_blank" rel="noopener">CA Secretary of State</a> · <a href="https://decisiondeskhq.com/" target="_blank" rel="noopener">Decision Desk HQ</a>. Sources: <a href="https://kalshi.com" target="_blank" rel="noopener">Kalshi</a> · <a href="https://www.natesilver.net/p/nate-silver-2026-midterm-election-polls-model" target="_blank" rel="noopener">Silver Bulletin</a> · <a href="https://www.cookpolitical.com/ratings" target="_blank" rel="noopener">Cook Political Report</a>.</p>
     <p data-el="status"></p>
   </div>
@@ -125,6 +125,9 @@
 #vav-mt .pbar b{font-family:var(--vav-mono);font-weight:500;font-variant-numeric:tabular-nums;text-align:right}
 #vav-mt .pbar .vav-bar{background:var(--vav-soft)} #vav-mt .pbar .vav-bar i{background:var(--vav-ok)}
 #vav-mt .yes{color:var(--vav-ok)} #vav-mt .no{color:var(--vav-rep)} #vav-mt .tu{color:var(--vav-warn)}
+#vav-mt .live{margin-top:6px;font-size:13px;font-family:var(--vav-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+#vav-mt .live .tag{font-family:inherit;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--vav-muted);border:1px solid var(--vav-line);border-radius:4px;padding:1px 5px;margin-right:6px}
+#vav-mt .live-rep{font-size:11.5px;margin-top:2px}
 #vav-mt .vav-empty{padding:24px 16px;text-align:center;color:var(--vav-muted)}
 #vav-mt .vav-foot{color:var(--vav-muted);font-size:12.5px;display:grid;gap:6px}
 #vav-mt .vav-foot a{color:inherit;text-decoration:underline}
@@ -228,8 +231,17 @@
     w.appendChild(el("span","lbl "+pcls(pr.p),(pr.called?"Won by ":"Leans ")+pr.p));
     if(pr.p!==r.held) w.appendChild(el("span","flip "+pcls(pr.p), pr.called?"Flipped":"Flip"));
     if(!pr.called) w.appendChild(el("span","na","via "+pr.src));
-    td.appendChild(w); return td;
+    td.appendChild(w);
+    var lv=r.live;
+    if(lv&&lv.c&&lv.c.length){
+      var box=el("div","live"); box.appendChild(el("span","tag","Count"));
+      lv.c.slice(0,2).forEach(function(x,i){ if(i) box.appendChild(document.createTextNode(" · ")); var s=el("span",pcls(x.p),lastName(x.n)+" "+x.pct.toFixed(1)+"%"); box.appendChild(s); });
+      td.appendChild(box); td.appendChild(el("div","na live-rep",liveRep(lv)));
+    }
+    return td;
   }
+  function lastName(n){ var p=String(n||"").trim().split(/\s+/); var l=p[p.length-1]; return /^(Jr\.?|Sr\.?|II|III|IV)$/i.test(l)&&p.length>1? p[p.length-2] : l; }
+  function liveRep(lv){ return (lv.rep? lv.rep+" · ":"")+"CA SOS "+fmtT(lv.at); }
 
   function renderRaces(){
     var d=state.data, tb=$("races"); tb.replaceChildren();
@@ -270,7 +282,15 @@
       else if(pr==null){ txt="—"; cls="na"; }
       else if(pr>=0.8){ txt="Likely passes"; cls="yes"; } else if(pr>=0.6){ txt="Leans yes"; cls="yes"; }
       else if(pr>0.4){ txt="Toss-up"; cls="tu"; } else if(pr>0.2){ txt="Leans no"; cls="no"; } else { txt="Likely fails"; cls="no"; }
-      var t4=el("td"), o=el("span",cls,txt); o.style.fontWeight="600"; o.style.fontSize="13px"; t4.appendChild(o); tr.appendChild(t4);
+      var t4=el("td"), o=el("span",cls,txt); o.style.fontWeight="600"; o.style.fontSize="13px"; t4.appendChild(o);
+      var lv=p.live;
+      if(lv&&lv.yp!=null){
+        var box=el("div","live"); box.appendChild(el("span","tag","Count"));
+        box.appendChild(el("span","yes","Yes "+lv.yp.toFixed(1)+"%")); box.appendChild(document.createTextNode(" · "));
+        box.appendChild(el("span","no","No "+lv.np.toFixed(1)+"%")); t4.appendChild(box);
+        t4.appendChild(el("div","na live-rep",liveRep(lv)));
+      }
+      tr.appendChild(t4);
       tb.appendChild(tr);
     });
   }
