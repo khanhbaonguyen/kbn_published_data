@@ -136,6 +136,7 @@
 <script>
 (function(){
   var DATA_URL = "https://raw.githubusercontent.com/khanhbaonguyen/kbn_published_data/main/midterms-2026/tracker.json";
+  var LIVE_URL = "https://raw.githubusercontent.com/khanhbaonguyen/kbn_published_data/main/midterms-2026/ca-live.json";
   var REFRESH_MS = 5 * 60 * 1000;
   var root = document.getElementById("vav-mt");
   if (!root || root.dataset.vavInit) return;
@@ -306,11 +307,26 @@
   }
 
   function setStatus(t){ var s=$("status"); if(s) s.textContent=t; }
+  // Live CA counts live in their own file; a missing or broken file just means no Count lines.
+  function loadLive(){
+    return fetch(LIVE_URL+"?t="+Date.now(), {cache:"no-store"})
+      .then(function(r){ return r.ok? r.json() : null; })
+      .catch(function(){ return null; });
+  }
   function load(){
-    fetch(DATA_URL+"?t="+Date.now(), {cache:"no-store"})
-      .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
-      .then(function(d){
+    Promise.all([
+      fetch(DATA_URL+"?t="+Date.now(), {cache:"no-store"})
+        .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }),
+      loadLive()
+    ])
+      .then(function(both){
+        var d=both[0], live=both[1];
         if(!d||!d.races||!d.races.length) throw new Error("no race data");
+        if(live){
+          var lr=live.races||{}, lp=live.props||{};
+          d.races.forEach(function(r){ if(lr[r.id]) r.live=lr[r.id]; });
+          (d.props||[]).forEach(function(p){ if(lp[p.id]) p.live=lp[p.id]; });
+        }
         state.data=d; var m={}; var res=d.results||{};
         Object.keys(res).forEach(function(id){ if(res[id]&&res[id].w) m[id]=res[id].w; });
         state.results=m; render();

@@ -1,0 +1,57 @@
+name: CA live results
+
+# Pulls California Secretary of State vote counts for the tracked CA House races and
+# statewide propositions and commits midterms-2026/ca-live.json. Counts stamped before
+# polls close (8 p.m. Pacific, Nov 3, 2026) are pre-election test data and are ignored,
+# so scheduled runs before then change nothing.
+#
+# Manual "test" runs accept test data but write midterms-2026/ca-live-test.json, which
+# the VietAmVote page never reads.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Dry run with test data (writes ca-live-test.json, not the live file)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ca-live
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch CA SOS counts
+        id: build
+        run: |
+          if [ "${{ inputs.test }}" = "true" ]; then
+            out=$(python3 scripts/ca_live_build.py --allow-test --out midterms-2026/ca-live-test.json)
+          else
+            out=$(python3 scripts/ca_live_build.py)
+          fi
+          echo "$out"
+          echo "result=${out%% *}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push
+        if: steps.build.outputs.result == 'changed'
+        run: |
+          git config user.name "ca-live-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add midterms-2026/ca-live*.json
+          git commit -m "Update CA live counts $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for i in 1 2 3; do
+            git pull --rebase -q origin main && git push -q origin HEAD:main && exit 0
+            sleep 5
+          done
+          echo "push failed after 3 tries"; exit 1
