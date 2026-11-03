@@ -8,7 +8,9 @@ Public data files that Khanh Nguyen's websites read in the browser. Claude artif
 
 | Path | Used by | Contents |
 |---|---|---|
-| `vietamvote/midterms-2026.json` | vietamvote.org midterm result tracker page | Race odds, Cook ratings, proposition odds and called results |
+| `midterms-2026/tracker.json` | vietamvote.org midterm result tracker page | Race odds, Cook ratings, poll averages, proposition odds and called results. Rewritten by the Midterms 2026 Tracker refresh. |
+| `vietamvote/midterms-2026-embed.html` | vietamvote.org (pasted into a Squarespace Code Block) | Read-only tracker page that fetches `midterms-2026/tracker.json` and re-checks it every 5 minutes |
+| `vietamvote/midterms-2026.json` | nothing (unused placeholder) | Superseded by `midterms-2026/tracker.json` |
 
 Add a folder per site or project, one JSON file per page or feed.
 
@@ -17,7 +19,7 @@ Add a folder per site or project, one JSON file per page or feed.
 Fetch the raw file. GitHub serves raw files with `Access-Control-Allow-Origin: *`, so a Squarespace Code Block can read them directly:
 
 ```
-https://raw.githubusercontent.com/khanhbaonguyen/kbn_published_data/main/vietamvote/midterms-2026.json
+https://raw.githubusercontent.com/khanhbaonguyen/kbn_published_data/main/midterms-2026/tracker.json
 ```
 
 Raw files are cached for about 5 minutes, so an update can take a few minutes to show. Add a cache-busting query string (for example `?t=` plus the current time) when fresher reads matter.

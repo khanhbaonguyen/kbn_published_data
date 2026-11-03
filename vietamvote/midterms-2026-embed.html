@@ -1,0 +1,316 @@
+<!--
+  VietAmVote · Midterms 2026 Tracker (public, read-only)
+  Paste this whole file into a Squarespace Code Block (Display Source off).
+  It reads the published tracker data from GitHub and refreshes every 5 minutes.
+  Data: https://github.com/khanhbaonguyen/kbn_published_data/blob/main/midterms-2026/tracker.json
+-->
+<div id="vav-mt" class="vav-mt">
+  <div class="vav-top">
+    <div>
+      <h2 class="vav-h1">Midterms 2026 Tracker</h2>
+      <div class="vav-stamps">
+        <span>Kalshi odds <b data-k="kalshiUpdated">—</b></span>
+        <span>Silver Bulletin polls <b data-k="pollsUpdated">—</b></span>
+        <span>Cook ratings <b data-k="cookAsOf">—</b></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="vav-summary" data-el="summary"><div class="vav-empty">Loading the latest odds…</div></div>
+
+  <div class="vav-controls">
+    <div class="vav-seg" role="group" aria-label="Chamber">
+      <button type="button" data-ch="All" aria-pressed="true">All</button>
+      <button type="button" data-ch="Senate" aria-pressed="false">Senate</button>
+      <button type="button" data-ch="House" aria-pressed="false">House</button>
+      <button type="button" data-ch="Governor" aria-pressed="false">Governor</button>
+    </div>
+    <div class="vav-right">
+      <label class="vav-chk"><input type="checkbox" data-el="flips"> Projected flips only</label>
+      <input type="search" data-el="q" placeholder="Search race or name" aria-label="Search races">
+    </div>
+  </div>
+
+  <div class="vav-box">
+    <table class="vav-races">
+      <thead><tr><th>Race</th><th>Cook</th><th>Held</th><th>Kalshi odds</th><th>Poll average</th><th>Outlook</th></tr></thead>
+      <tbody data-el="races"><tr><td colspan="6" class="vav-empty">Loading races…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="vav-sechead">
+    <h3>California propositions</h3>
+    <span>Kalshi chance each measure passes · updated <b data-k="propsUpdated">—</b></span>
+  </div>
+  <div class="vav-box">
+    <table class="vav-props">
+      <thead><tr><th>Prop</th><th>Measure</th><th>Kalshi: passes</th><th>Outlook</th></tr></thead>
+      <tbody data-el="props"><tr><td colspan="4" class="vav-empty">Loading propositions…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="vav-foot">
+    <p>Races: every Cook Political Report Toss Up and Lean contest for Senate, House and Governor, plus CA-45. Kalshi odds are the midpoint of each market's bid and ask. Poll averages come from Silver Bulletin's FLIPR model; "—" means no market or polling average exists for that race.</p>
+    <p>Projected seats: seats not on this list counted by Cook lean, plus each listed race's called result, else its Kalshi favorite, else its poll leader. Called results are added on election night.</p>
+    <p>Live results: <a href="https://electionresults.sos.ca.gov/" target="_blank" rel="noopener">CA Secretary of State</a> · <a href="https://decisiondeskhq.com/" target="_blank" rel="noopener">Decision Desk HQ</a>. Sources: <a href="https://kalshi.com" target="_blank" rel="noopener">Kalshi</a> · <a href="https://www.natesilver.net/p/nate-silver-2026-midterm-election-polls-model" target="_blank" rel="noopener">Silver Bulletin</a> · <a href="https://www.cookpolitical.com/ratings" target="_blank" rel="noopener">Cook Political Report</a>.</p>
+    <p data-el="status"></p>
+  </div>
+</div>
+
+<style>
+#vav-mt{
+  --vav-panel:#ffffff; --vav-ink:#15212e; --vav-muted:#5d6b79; --vav-line:#dde3ea; --vav-soft:#eef2f6;
+  --vav-dem:#2456c4; --vav-dem-soft:#e3ebfa; --vav-rep:#c3352c; --vav-rep-soft:#f8e4e2; --vav-ind:#a2700c;
+  --vav-ok:#1d7a4f; --vav-warn:#a2700c;
+  --vav-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color:var(--vav-ink); font-size:15px; line-height:1.45; display:grid; gap:16px; max-width:1180px; margin:0 auto;
+}
+#vav-mt *{box-sizing:border-box}
+#vav-mt h2,#vav-mt h3,#vav-mt p{margin:0;padding:0;letter-spacing:normal;text-transform:none}
+#vav-mt .vav-h1{font-size:clamp(24px,4vw,34px);font-weight:700;line-height:1.15;color:var(--vav-ink)}
+#vav-mt .vav-stamps{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--vav-muted);font-size:13px;margin-top:6px}
+#vav-mt .vav-stamps b{color:var(--vav-ink);font-weight:500;font-family:var(--vav-mono);font-size:12.5px}
+#vav-mt .vav-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+#vav-mt .vav-card{background:var(--vav-panel);border:1px solid var(--vav-line);border-radius:10px;padding:14px 16px;display:grid;gap:10px;min-width:0}
+#vav-mt .vav-card h3{font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--vav-muted);font-weight:600}
+#vav-mt .vav-big{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+#vav-mt .vav-big .n{font-size:38px;font-weight:700;line-height:1}
+#vav-mt .vav-big .l{color:var(--vav-muted);font-size:13px}
+#vav-mt .vav-bar{height:8px;border-radius:4px;background:var(--vav-rep);overflow:hidden;display:flex}
+#vav-mt .vav-bar i{display:block;height:100%;background:var(--vav-dem)}
+#vav-mt .vav-kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px;margin:0}
+#vav-mt .vav-kv dt{color:var(--vav-muted);margin:0} #vav-mt .vav-kv dd{margin:0;font-family:var(--vav-mono);font-variant-numeric:tabular-nums;text-align:right}
+#vav-mt .vav-seats{display:flex;align-items:center;gap:8px;font-family:var(--vav-mono);font-size:13px}
+#vav-mt .vav-track{flex:1;height:14px;display:flex;border-radius:3px;overflow:hidden;background:var(--vav-soft);position:relative}
+#vav-mt .vav-track span{display:block;height:100%}
+#vav-mt .vav-track .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:var(--vav-ink)}
+#vav-mt .d{color:var(--vav-dem)} #vav-mt .r{color:var(--vav-rep)} #vav-mt .ind{color:var(--vav-ind)}
+#vav-mt .vav-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+#vav-mt .vav-seg{display:inline-flex;background:var(--vav-panel);border:1px solid var(--vav-line);border-radius:8px;padding:3px;gap:2px;flex-wrap:wrap}
+#vav-mt .vav-seg button{all:unset;cursor:pointer;color:var(--vav-muted);padding:6px 12px;border-radius:6px;font-weight:500;font-size:14px}
+#vav-mt .vav-seg button[aria-pressed="true"]{background:var(--vav-soft);color:var(--vav-ink)}
+#vav-mt .vav-seg button:focus-visible,#vav-mt input:focus-visible{outline:2px solid var(--vav-dem);outline-offset:2px}
+#vav-mt .vav-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#vav-mt .vav-chk{display:inline-flex;gap:6px;align-items:center;color:var(--vav-muted);font-size:14px;margin:0}
+#vav-mt input[type=search]{border:1px solid var(--vav-line);background:var(--vav-panel);color:var(--vav-ink);border-radius:8px;padding:7px 10px;font:inherit;font-size:14px;width:200px;max-width:100%;margin:0}
+#vav-mt .vav-box{background:var(--vav-panel);border:1px solid var(--vav-line);border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+#vav-mt table{width:100%;border:0;border-collapse:collapse;min-width:760px;margin:0;font-size:14px;background:transparent}
+#vav-mt table.vav-props{min-width:560px}
+#vav-mt th,#vav-mt td{padding:9px 12px;text-align:left;border:0;border-bottom:1px solid var(--vav-line);vertical-align:middle;background:transparent}
+#vav-mt thead th{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--vav-muted);font-weight:600}
+#vav-mt tr.grp td{background:var(--vav-soft);font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:13px;padding-block:7px}
+#vav-mt tr.grp td small{font-weight:400;text-transform:none;letter-spacing:0;color:var(--vav-muted);margin-left:8px}
+#vav-mt .race b{font-weight:600} #vav-mt .race small{display:block;color:var(--vav-muted);font-size:12.5px}
+#vav-mt .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+#vav-mt .pill.TU{background:var(--vav-soft);border:1px solid var(--vav-line)}
+#vav-mt .pill.LD{background:var(--vav-dem-soft);color:var(--vav-dem)} #vav-mt .pill.LR{background:var(--vav-rep-soft);color:var(--vav-rep)}
+#vav-mt .pill.XD{color:var(--vav-dem);border:1px solid var(--vav-dem)}
+#vav-mt .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+#vav-mt .dot.D{background:var(--vav-dem)} #vav-mt .dot.R{background:var(--vav-rep)} #vav-mt .dot.I{background:var(--vav-ind)}
+#vav-mt .odds{display:grid;gap:4px;min-width:190px}
+#vav-mt .odds .names{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+#vav-mt .odds .names span{font-family:var(--vav-mono);font-variant-numeric:tabular-nums}
+#vav-mt .na{color:var(--vav-muted);font-size:13px}
+#vav-mt .poll{font-size:13px;line-height:1.35}
+#vav-mt .poll .m{font-family:var(--vav-mono);font-weight:500}
+#vav-mt .outlook{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px}
+#vav-mt .outlook .lbl{font-weight:600}
+#vav-mt .flip{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;border:1px solid currentColor}
+#vav-mt .vav-sechead{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;justify-content:space-between;margin-top:8px}
+#vav-mt .vav-sechead h3{font-size:22px;font-weight:700}
+#vav-mt .vav-sechead span{color:var(--vav-muted);font-size:13px}
+#vav-mt .vav-sechead b{font-family:var(--vav-mono);font-weight:500;color:var(--vav-ink)}
+#vav-mt .pnum{font-weight:700;font-size:18px;white-space:nowrap}
+#vav-mt .pbar{display:grid;grid-template-columns:52px 1fr;gap:10px;align-items:center;min-width:170px}
+#vav-mt .pbar b{font-family:var(--vav-mono);font-weight:500;font-variant-numeric:tabular-nums;text-align:right}
+#vav-mt .pbar .vav-bar{background:var(--vav-soft)} #vav-mt .pbar .vav-bar i{background:var(--vav-ok)}
+#vav-mt .yes{color:var(--vav-ok)} #vav-mt .no{color:var(--vav-rep)} #vav-mt .tu{color:var(--vav-warn)}
+#vav-mt .vav-empty{padding:24px 16px;text-align:center;color:var(--vav-muted)}
+#vav-mt .vav-foot{color:var(--vav-muted);font-size:12.5px;display:grid;gap:6px}
+#vav-mt .vav-foot a{color:inherit;text-decoration:underline}
+</style>
+
+<script>
+(function(){
+  var DATA_URL = "https://raw.githubusercontent.com/khanhbaonguyen/kbn_published_data/main/midterms-2026/tracker.json";
+  var REFRESH_MS = 5 * 60 * 1000;
+  var root = document.getElementById("vav-mt");
+  if (!root || root.dataset.vavInit) return;
+  root.dataset.vavInit = "1";
+
+  var $ = function(s){ return root.querySelector('[data-el="'+s+'"]'); };
+  var state = { data:null, results:{}, ch:"All", flips:false, q:"" };
+  var COOK = {"Toss Up":"TU","Lean D":"LD","Lean R":"LR","Likely D":"XD"};
+  var ORDER = {"Lean D":0,"Toss Up":1,"Lean R":2,"Likely D":3};
+  var CH_ORDER = ["Senate","Governor","House"];
+
+  function el(tag, cls, txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+  function pct(x){ return (x*100).toFixed(x>=0.995||x<0.005?1:0)+"%"; }
+  function fmtT(iso){ if(!iso) return "—"; var d=new Date(iso); if(isNaN(d)) return iso;
+    return d.toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"}); }
+  function pcls(p){ return p==="D"?"d":p==="R"?"r":"ind"; }
+  function sortBy(a, f){ return a.slice().sort(f); }
+
+  function favorite(r){
+    var k=r.kalshi&&r.kalshi.c; if(k&&k.length){ var f=sortBy(k,function(a,b){return b.pr-a.pr;})[0]; return {p:f.p,n:f.n,src:"Kalshi"}; }
+    var pl=r.poll&&r.poll.c; if(pl&&pl.length){ var g=sortBy(pl,function(a,b){return b.pct-a.pct;})[0]; return {p:g.p,n:g.n,src:"polls"}; }
+    if(r.cook==="Lean D"||r.cook==="Likely D") return {p:"D",src:"Cook"};
+    if(r.cook==="Lean R") return {p:"R",src:"Cook"};
+    return {p:r.held,src:"incumbent party"};
+  }
+  function projected(r){ var w=state.results[r.id]; if(w) return {p:w,called:true}; var f=favorite(r); f.called=false; return f; }
+
+  function card(title, ctrl, ch, extra){
+    var d=state.data, c=el("div","vav-card"); c.appendChild(el("h3",null,title));
+    if(ctrl&&ctrl.kalshiD!=null){
+      var dWin=ctrl.kalshiD>=0.5, big=el("div","vav-big");
+      big.appendChild(el("span","n "+(dWin?"d":"r"), pct(dWin?ctrl.kalshiD:1-ctrl.kalshiD)));
+      big.appendChild(el("span","l",(dWin?"Democrats":"Republicans")+" win control (Kalshi)"));
+      c.appendChild(big);
+      var bar=el("div","vav-bar"), i=el("i"); i.style.width=(ctrl.kalshiD*100)+"%"; bar.appendChild(i); c.appendChild(bar);
+    }
+    if(d.base&&d.base[ch]){
+      var races=d.races.filter(function(r){return r.chamber===ch;});
+      var D=d.base[ch].D, R=d.base[ch].R, I=0, called=0;
+      races.forEach(function(r){ var p=projected(r); if(p.called) called++; if(p.p==="D") D++; else if(p.p==="R") R++; else I++; });
+      var total=D+R+I, s=el("div","vav-seats"); s.appendChild(el("span","d",String(D)));
+      var tr=el("div","vav-track");
+      [["D",D,"var(--vav-dem)"],["I",I,"var(--vav-ind)"],["R",R,"var(--vav-rep)"]].forEach(function(x){ if(!x[1]) return; var sp=el("span"); sp.style.width=(x[1]/total*100)+"%"; sp.style.background=x[2]; tr.appendChild(sp); });
+      tr.appendChild(el("i","mid")); s.appendChild(tr); s.appendChild(el("span","r",String(R))); c.appendChild(s);
+      var kv=el("dl","vav-kv"); function add(k,v){ kv.appendChild(el("dt",null,k)); kv.appendChild(el("dd",null,v)); }
+      add("Projected seats","D "+D+(I?" · I "+I:"")+" · R "+R);
+      add("Majority", ch==="Senate"?"51 (VP breaks 50–50)":"218");
+      add("Tracked races called", called+" of "+races.length);
+      (extra||[]).forEach(function(x){ add(x[0],x[1]); });
+      c.appendChild(kv);
+    }
+    return c;
+  }
+
+  function renderSummary(){
+    var d=state.data, box=$("summary"); box.replaceChildren();
+    var ctl=d.control||{}, hou=ctl.house;
+    box.appendChild(card("Senate control", ctl.senate, "Senate"));
+    box.appendChild(card("House control", hou, "House", hou&&hou.fliprD!=null?[["Silver Bulletin FLIPR","D "+pct(hou.fliprD)]]:null));
+    var g=el("div","vav-card"); g.appendChild(el("h3",null,"Generic ballot · poll average")); var gb=ctl.generic;
+    if(gb){ var m=gb.d-gb.r, big=el("div","vav-big");
+      big.appendChild(el("span","n "+(m>=0?"d":"r"),(m>=0?"D+":"R+")+Math.abs(m).toFixed(1)));
+      big.appendChild(el("span","l","Silver Bulletin average")); g.appendChild(big);
+      var kv=el("dl","vav-kv"); kv.appendChild(el("dt",null,"Democrats")); kv.appendChild(el("dd","d",gb.d.toFixed(1)+"%"));
+      kv.appendChild(el("dt",null,"Republicans")); kv.appendChild(el("dd","r",gb.r.toFixed(1)+"%")); g.appendChild(kv);
+    }
+    var gd=0, gr=0; d.races.filter(function(r){return r.chamber==="Governor";}).forEach(function(r){ if(projected(r).p==="D") gd++; else gr++; });
+    var kv2=el("dl","vav-kv"); kv2.appendChild(el("dt",null,"Tracked governor races")); kv2.appendChild(el("dd",null,"D "+gd+" · R "+gr+" projected")); g.appendChild(kv2);
+    box.appendChild(g);
+  }
+
+  function oddsCell(r){
+    var td=el("td"), k=r.kalshi;
+    if(!k||!k.c||!k.c.length){ td.appendChild(el("span","na","No Kalshi market")); return td; }
+    var c=sortBy(k.c,function(a,b){return b.pr-a.pr;}), box=el("div","odds"), names=el("div","names");
+    c.slice(0,2).forEach(function(x){ var s=el("div",pcls(x.p)); s.appendChild(document.createTextNode(x.n+" ")); s.appendChild(el("span",null,pct(x.pr))); names.appendChild(s); });
+    box.appendChild(names);
+    var sum=function(p){ return k.c.filter(function(x){return x.p===p;}).reduce(function(s,x){return s+x.pr;},0); };
+    var dP=sum("D"), rP=sum("R"), iP=sum("I"), tot=dP+rP+iP||1, bar=el("div","vav-bar");
+    [["var(--vav-dem)",dP],["var(--vav-ind)",iP],["var(--vav-rep)",rP]].forEach(function(x){ if(!x[1]) return; var i=el("i"); i.style.width=(x[1]/tot*100)+"%"; i.style.background=x[0]; bar.appendChild(i); });
+    box.appendChild(bar); td.appendChild(box); return td;
+  }
+  function pollCell(r){
+    var td=el("td"), p=r.poll;
+    if(!p||!p.c||!p.c.length){ td.appendChild(el("span","na","—")); return td; }
+    var c=sortBy(p.c,function(a,b){return b.pct-a.pct;}), m=c[0].pct-(c[1]?c[1].pct:0), box=el("div","poll"), l1=el("div");
+    l1.appendChild(el("span","m "+pcls(c[0].p), m<0.05?"Tied":(c[0].n+" +"+m.toFixed(1)))); box.appendChild(l1);
+    box.appendChild(el("div","na", c.map(function(x){return x.n+" "+x.pct.toFixed(1);}).join(" · ")));
+    td.appendChild(box); return td;
+  }
+  function outlookCell(r){
+    var td=el("td"), pr=projected(r), w=el("div","outlook");
+    w.appendChild(el("span","lbl "+pcls(pr.p),(pr.called?"Won by ":"Leans ")+pr.p));
+    if(pr.p!==r.held) w.appendChild(el("span","flip "+pcls(pr.p), pr.called?"Flipped":"Flip"));
+    if(!pr.called) w.appendChild(el("span","na","via "+pr.src));
+    td.appendChild(w); return td;
+  }
+
+  function renderRaces(){
+    var d=state.data, tb=$("races"); tb.replaceChildren();
+    var q=state.q.trim().toLowerCase();
+    var races=d.races.filter(function(r){ return state.ch==="All"||r.chamber===state.ch; });
+    if(state.flips) races=races.filter(function(r){ return projected(r).p!==r.held; });
+    if(q) races=races.filter(function(r){
+      var names=[].concat(r.kalshi?r.kalshi.c:[], r.poll?r.poll.c:[]).map(function(x){return x.n;}).join(" ");
+      return (r.label+" "+r.id+" "+(r.inc||"")+" "+names).toLowerCase().indexOf(q)>=0; });
+    if(!races.length){ var tr0=el("tr"), td0=el("td","vav-empty","No races match these filters."); td0.colSpan=6; tr0.appendChild(td0); tb.appendChild(tr0); return; }
+    CH_ORDER.forEach(function(ch){
+      var rs=races.filter(function(r){return r.chamber===ch;}).sort(function(a,b){ return ((ORDER[a.cook]||0)-(ORDER[b.cook]||0))||a.label.localeCompare(b.label); });
+      if(!rs.length) return;
+      var flips=rs.filter(function(r){return projected(r).p!==r.held;}).length;
+      var g=el("tr","grp"), gtd=el("td",null,ch); gtd.colSpan=6; gtd.appendChild(el("small",null,rs.length+" races · "+flips+" projected to flip")); g.appendChild(gtd); tb.appendChild(g);
+      rs.forEach(function(r){
+        var tr=el("tr"), t1=el("td","race"); t1.appendChild(el("b",null,r.label)); t1.appendChild(el("small",null,r.inc||"")); tr.appendChild(t1);
+        var t2=el("td"); t2.appendChild(el("span","pill "+(COOK[r.cook]||"TU"), r.cook)); tr.appendChild(t2);
+        var t3=el("td"); t3.appendChild(el("span","dot "+r.held)); t3.appendChild(document.createTextNode(r.held)); tr.appendChild(t3);
+        tr.appendChild(oddsCell(r)); tr.appendChild(pollCell(r)); tr.appendChild(outlookCell(r)); tb.appendChild(tr);
+      });
+    });
+  }
+
+  function renderProps(){
+    var tb=$("props"); tb.replaceChildren();
+    var ps=(state.data.props||[]).slice().sort(function(a,b){return a.num-b.num;});
+    if(!ps.length){ var tr0=el("tr"), td0=el("td","vav-empty","No propositions yet."); td0.colSpan=4; tr0.appendChild(td0); tb.appendChild(tr0); return; }
+    ps.forEach(function(p){
+      var tr=el("tr"); tr.appendChild(el("td","pnum",String(p.num)));
+      var t2=el("td","race"); t2.appendChild(el("b",null,p.label)); t2.appendChild(el("small",null,(p.type||"")+(p.note?" · "+p.note:""))); tr.appendChild(t2);
+      var pr=p.kalshi&&p.kalshi.pr, t3=el("td");
+      if(pr==null) t3.appendChild(el("span","na","No Kalshi market"));
+      else { var b=el("div","pbar"); b.appendChild(el("b",null,pct(pr))); var bar=el("div","vav-bar"), i=el("i"); i.style.width=(pr*100)+"%"; bar.appendChild(i); b.appendChild(bar); t3.appendChild(b); }
+      tr.appendChild(t3);
+      var w=state.results[p.id], txt, cls;
+      if(w){ txt=w==="Y"?"Passed":"Failed"; cls=w==="Y"?"yes":"no"; }
+      else if(pr==null){ txt="—"; cls="na"; }
+      else if(pr>=0.8){ txt="Likely passes"; cls="yes"; } else if(pr>=0.6){ txt="Leans yes"; cls="yes"; }
+      else if(pr>0.4){ txt="Toss-up"; cls="tu"; } else if(pr>0.2){ txt="Leans no"; cls="no"; } else { txt="Likely fails"; cls="no"; }
+      var t4=el("td"), o=el("span",cls,txt); o.style.fontWeight="600"; o.style.fontSize="13px"; t4.appendChild(o); tr.appendChild(t4);
+      tb.appendChild(tr);
+    });
+  }
+
+  function render(){
+    if(!state.data) return;
+    root.querySelectorAll("[data-k]").forEach(function(b){
+      var k=b.getAttribute("data-k"), v=state.data[k];
+      if(k==="propsUpdated") v=v||state.data.kalshiUpdated;
+      b.textContent = k==="cookAsOf" ? (v||"—") : fmtT(v);
+    });
+    renderSummary(); renderRaces(); renderProps();
+  }
+
+  function setStatus(t){ var s=$("status"); if(s) s.textContent=t; }
+  function load(){
+    fetch(DATA_URL+"?t="+Date.now(), {cache:"no-store"})
+      .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+      .then(function(d){
+        if(!d||!d.races||!d.races.length) throw new Error("no race data");
+        state.data=d; var m={}; var res=d.results||{};
+        Object.keys(res).forEach(function(id){ if(res[id]&&res[id].w) m[id]=res[id].w; });
+        state.results=m; render();
+        setStatus("Data published "+fmtT(d.publishedAt)+". This page checks for new numbers every 5 minutes.");
+      })
+      .catch(function(e){
+        if(!state.data){ $("summary").replaceChildren(el("div","vav-empty","Couldn't load the tracker data right now. Please refresh the page in a minute.")); }
+        setStatus("Last check for new data failed ("+e.message+"); showing the most recent numbers loaded.");
+      });
+  }
+
+  root.querySelectorAll(".vav-seg button").forEach(function(b){ b.addEventListener("click", function(){
+    state.ch=b.getAttribute("data-ch");
+    root.querySelectorAll(".vav-seg button").forEach(function(x){ x.setAttribute("aria-pressed", x===b?"true":"false"); });
+    render(); }); });
+  $("flips").addEventListener("change", function(e){ state.flips=e.target.checked; render(); });
+  $("q").addEventListener("input", function(e){ state.q=e.target.value; render(); });
+
+  load();
+  setInterval(function(){ if(!document.hidden) load(); }, REFRESH_MS);
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) load(); });
+})();
+</script>
