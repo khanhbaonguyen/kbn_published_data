@@ -3,6 +3,11 @@
 
 Usage (from the repo root):
     python3 -I scripts/oc_rov_live.py "CONTEST TITLE" ["CONTEST TITLE" ...] [--allow-test] [--html FILE]
+    python3 -I scripts/oc_rov_live.py --left [--left-html INDEX_FILE TOTAL_FILE]
+
+--left reads the county's "What's Left to Process" pages instead and prints
+{"left": {"total": n, "asOf": ISO, "src": url}} or {"left": null, "skipped": [...]}.
+Figures stamped before Nov 4, 2026 (left over from an earlier election) are ignored.
 
 The Orange County Registrar of Voters publishes election-night results as one large
 HTML page on livevoterturnout.com (embedded at https://ocvote.gov/results/current-election-results).
@@ -115,11 +120,70 @@ def parse(page: str, titles, allow_test: bool):
             if c["pct"] is None:
                 c["pct"] = round(100 * c["v"] / total, 2) if total else 0.0
         cands.sort(key=lambda c: -c["v"])
-        out[title] = {"src": "OC ROV", "rep": rep, "at": at, "c": cands}
+        out[title] = {"src": "OC ROV", "rep": rep, "at": at, "c": cands,
+                      "ballots": int(b.group(1).replace(",", "")) if b else None}
     return out, skipped
 
 
+LEFT_INDEX = "https://ocvote.gov/results/whats-left-to-count"
+LEFT_TOTAL = "https://ocvote.gov/results/whats-left-to-count/total-ballots-left-to-count"
+LEFT_HEADS = ["Vote-by-mail ballots received on or before Election Day", "Ballots From Drop Boxes Left to Process",
+              "Vote-by-Mail Returned at Vote Centers Left to Process", "Duplicated Ballot", "Eligible Ballots received after Election Day",
+              "Conditional Voter Registrations", "Final Drop Box Pickup Ballots", "RAVBM Ballots Left to Process"]
+ELECTION_DAY_AFTER = datetime(2026, 11, 4, 0, 0, tzinfo=PACIFIC)
+
+
+def page_text(page: str) -> str:
+    body = page.split("</head>", 1)[-1]
+    body = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", body)
+    return re.sub(r"\s+", " ", htmllib.unescape(re.sub(r"<[^>]+>", " ", body))).strip()
+
+
+def parse_left(index_page: str, total_page: str):
+    """County-wide estimate of ballots left to process, or (None, reason)."""
+    it = page_text(index_page)
+    m = re.search(r"Last Update:\s*(\d{1,2}/\d{1,2}/\d{4})\s+(\d{1,2}:\d{2})\s*([AP])\.?\s*M\.?", it, re.I)
+    if not m:
+        return None, "no 'Last Update' stamp on What's Left page"
+    when = datetime.strptime(f"{m.group(1)} {m.group(2)} {m.group(3).upper()}M", "%m/%d/%Y %I:%M %p").replace(tzinfo=PACIFIC)
+    if when < ELECTION_DAY_AFTER:
+        return None, f"What's Left page last updated {when.date()} (before this election)"
+    tt = page_text(total_page)
+    tt = tt[tt.find("Total Ballots Left to Process"):] if "Total Ballots Left to Process" in tt else tt
+    big = r"(\d{1,3}(?:,\d{3})+|\d{3,})"
+    total = None
+    m2 = re.search(r"(?:Grand Total|Total Ballots Left(?: to Process)?|Total)\s*[:\-]?\s*" + big + r"\b", tt.replace("Total Ballots Left to Process *IMPORTANT", "", 1), re.I)
+    if m2:
+        total = int(m2.group(1).replace(",", ""))
+    else:
+        low = tt.lower()
+        pos = sorted((low.find(h.lower()), h) for h in LEFT_HEADS if low.find(h.lower()) >= 0)
+        parts = []
+        for k, (i, h) in enumerate(pos):
+            end = pos[k + 1][0] if k + 1 < len(pos) else len(tt)
+            n = re.search(big, tt[i + len(h):end])
+            if n:
+                parts.append(int(n.group(1).replace(",", "")))
+        if parts:
+            total = sum(parts)
+    if not total:
+        return None, "What's Left page has no figures yet"
+    return {"total": total, "asOf": when.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "src": LEFT_INDEX}, None
+
+
 def main(argv):
+    if "--left" in argv:
+        try:
+            if "--left-html" in argv:
+                i = argv.index("--left-html")
+                pages = [open(argv[i + 1], encoding="utf-8").read(), open(argv[i + 2], encoding="utf-8").read()]
+            else:
+                pages = [get(LEFT_INDEX, 30), get(LEFT_TOTAL, 30)]
+            left, why = parse_left(*pages)
+        except Exception as e:
+            left, why = None, f"fetch failed: {e}"
+        print(json.dumps({"left": left, "skipped": [why] if why else []}))
+        return 0
     allow_test = "--allow-test" in argv
     html_file = argv[argv.index("--html") + 1] if "--html" in argv else None
     titles = [a for a in argv if not a.startswith("--") and a != html_file]

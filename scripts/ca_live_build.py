@@ -76,8 +76,12 @@ def main(argv):
             done = json.load(f)
 
     # Orange County local contests: races carrying an "oc" contest title.
-    oc_races = [r for r in tracker["races"] if r.get("oc")]
-    oc_live = {}
+    # State-run races that lie entirely inside Orange County: their county contest title, used
+    # only to size the ballots-left estimate (the SOS count is what the pages show).
+    OC_STATE_RACES = {"A-CA-70": "MEMBER OF THE STATE ASSEMBLY 70th District"}
+    oc_races = [r if r.get("oc") else {**r, "oc": OC_STATE_RACES[r["id"]]}
+                for r in tracker["races"] if r.get("oc") or r.get("id") in OC_STATE_RACES]
+    oc_live, oc_votes, oc_ballots = {}, {}, None
     if oc_races:
         cmd = [sys.executable, "-I", OC_SCRIPT] + [r["oc"] for r in oc_races] + (["--allow-test"] if allow_test else [])
         run = subprocess.run(cmd, capture_output=True, text=True)
@@ -87,12 +91,19 @@ def main(argv):
             got = {"contests": {}, "skipped": ["oc_rov_live.py failed: " + (run.stderr or run.stdout).strip()[:300]]}
         for r in oc_races:
             live = got["contests"].get(r["oc"])
+            if live and live.get("ballots"):
+                oc_ballots = live["ballots"]
+            if live and r["id"].startswith(("H-CA-", "A-CA-")):
+                # State-run race inside Orange County: the SOS count is shown; the county count only sizes the estimate.
+                oc_votes[r["id"]] = sum(c["v"] for c in live["c"])
+                continue
             if live:
+                oc_votes[r["id"]] = sum(c["v"] for c in live["c"])
                 display = {str(n).upper(): n for n in r.get("cands") or []}
                 for c in live["c"]:
                     c["n"] = display.get(c["n"].upper(), c["n"].title())
                 oc_live[r["id"]] = live
-            elif r["id"] in prev.get("races", {}):
+            elif r["id"] in prev.get("races", {}) and not r["id"].startswith(("H-CA-", "A-CA-")):
                 oc_live[r["id"]] = prev["races"][r["id"]]  # keep last good count
         summary = summary + " oc=" + json.dumps({"ok": sorted(got["contests"]), "skipped": got.get("skipped", [])})
 
@@ -100,7 +111,41 @@ def main(argv):
         "races": {**{r["id"]: r["live"] for r in done["races"] if r.get("live")}, **oc_live},
         "props": {p["id"]: p["live"] for p in done["props"] if p.get("live")},
     }
-    if new["races"] == prev.get("races", {}) and new["props"] == prev.get("props", {}):
+    # Ballots left: the county's estimate (its "What's Left to Process" page, or a manual
+    # midterms-2026/oc-left-manual.json {"total", "asOf"[, "final"]}) shared out by each race's
+    # portion of ballots counted so far. Every Orange County race is marked "in progress"
+    # until that manual file says final.
+    if oc_races:
+        manual = load(os.path.join(ROOT, "midterms-2026", "oc-left-manual.json"), None)
+        left = None
+        if manual and manual.get("total"):
+            left = {"total": int(manual["total"]), "asOf": manual.get("asOf"), "src": "manual"}
+        else:
+            run = subprocess.run([sys.executable, "-I", OC_SCRIPT, "--left"], capture_output=True, text=True)
+            try:
+                left = json.loads(run.stdout).get("left")
+            except ValueError:
+                left = None
+        if not left and prev.get("ocLeft"):
+            left = prev["ocLeft"]  # keep last good county estimate
+        final = bool(manual and manual.get("final"))
+        for r in oc_races:
+            lv = new["races"].get(r["id"])
+            if not lv:
+                continue
+            lv = dict(lv)
+            lv["inProgress"] = not final
+            v = oc_votes.get(r["id"])
+            if left and v and oc_ballots and not final:
+                lv["left"] = {"n": int(round(left["total"] * v / oc_ballots)), "county": left["total"], "asOf": left.get("asOf")}
+            else:
+                lv.pop("left", None)
+            new["races"][r["id"]] = lv
+        if left:
+            new["ocLeft"] = left
+        summary += " left=" + json.dumps(left)
+
+    if all(new.get(k) == prev.get(k) for k in ("races", "props", "ocLeft")):
         print("unchanged", summary)
         return 0
 
