@@ -10,6 +10,7 @@ California Secretary of State's public results API (https://api.sos.ca.gov/retur
 and adds a "live" field to:
 
   * every race whose id starts with "H-CA-"  (from /returns/us-rep/district/<n>)
+  * every race whose id starts with "A-CA-"  (from /returns/state-assembly/district/<n>)
   * every proposition                        (from /returns/ballot-measures)
 
     race.live = {"src": "CA SOS", "rep": "<reporting text>", "at": "<ISO UTC>",
@@ -93,8 +94,8 @@ def pick_statewide(data):
     return data
 
 
-def house_live(district: int, allow_test: bool):
-    race = pick_statewide(fetch(f"us-rep/district/{district}"))
+def house_live(district: int, allow_test: bool, office: str = "us-rep"):
+    race = pick_statewide(fetch(f"{office}/district/{district}"))
     rep, at = stamp(race, allow_test)
     cands = []
     for c in race.get("candidates") or []:
@@ -148,11 +149,12 @@ def main(argv):
     summary = {"races": [], "props": 0, "skipped": []}
 
     for r in doc.get("races", []):
-        m = re.fullmatch(r"H-CA-(\d+)", r.get("id", ""))
+        m = re.fullmatch(r"([HA])-CA-(\d+)", r.get("id", ""))
         if not m:
             continue
         try:
-            r["live"] = house_live(int(m.group(1)), allow_test)
+            office = "us-rep" if m.group(1) == "H" else "state-assembly"
+            r["live"] = house_live(int(m.group(2)), allow_test, office)
             summary["races"].append(r["id"])
         except Exception as e:
             summary["skipped"].append(f"{r['id']}: {e}")

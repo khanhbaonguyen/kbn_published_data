@@ -24,6 +24,7 @@
       <button type="button" data-ch="Senate" aria-pressed="false">Senate</button>
       <button type="button" data-ch="House" aria-pressed="false">House</button>
       <button type="button" data-ch="Governor" aria-pressed="false">Governor</button>
+      <button type="button" data-ch="Local" aria-pressed="false">State &amp; Local</button>
     </div>
     <div class="vav-right">
       <label class="vav-chk"><input type="checkbox" data-el="flips"> Projected flips only</label>
@@ -50,9 +51,10 @@
   </div>
 
   <div class="vav-foot">
-    <p>Races: every Cook Political Report Toss Up and Lean contest for Senate, House and Governor, plus CA-45. Kalshi odds are the midpoint of each market's bid and ask. Poll averages come from Silver Bulletin's FLIPR model; "—" means no market or polling average exists for that race.</p>
+    <p>Races: every Cook Political Report Toss Up and Lean contest for Senate, House and Governor, plus CA-45 and Mississippi Senate. Kalshi odds are the midpoint of each market's bid and ask. Poll averages come from Silver Bulletin's FLIPR model; "—" means no market or polling average exists for that race.</p>
     <p>Projected seats: seats not on this list counted by Cook lean, plus each listed race's called result, else its Kalshi favorite, else its poll leader. Called results are added on election night. "Count" lines for California races and propositions are the Secretary of State's semi-official vote count; California counts ballots for weeks after Election Day.</p>
     <p>Live results: <a href="https://electionresults.sos.ca.gov/" target="_blank" rel="noopener">CA Secretary of State</a> · <a href="https://decisiondeskhq.com/" target="_blank" rel="noopener">Decision Desk HQ</a>. Sources: <a href="https://kalshi.com" target="_blank" rel="noopener">Kalshi</a> · <a href="https://www.natesilver.net/p/nate-silver-2026-midterm-election-polls-model" target="_blank" rel="noopener">Silver Bulletin</a> · <a href="https://www.cookpolitical.com/ratings" target="_blank" rel="noopener">Cook Political Report</a>.</p>
+    <p>State &amp; Local: CA Assembly District 70 (count from the CA Secretary of State) and the Garden Grove and Westminster City Council District 4 races (count from the <a href="https://ocvote.gov/results/current-election-results" target="_blank" rel="noopener">Orange County Registrar of Voters</a>). Counts refresh about every 10 minutes.</p>
     <p data-el="status"></p>
   </div>
 </div>
@@ -105,6 +107,10 @@
 #vav-mt .pill.TU{background:var(--vav-soft);border:1px solid var(--vav-line)}
 #vav-mt .pill.LD{background:var(--vav-dem-soft);color:var(--vav-dem)} #vav-mt .pill.LR{background:var(--vav-rep-soft);color:var(--vav-rep)}
 #vav-mt .pill.XD{color:var(--vav-dem);border:1px solid var(--vav-dem)}
+#vav-mt .pill.XR{color:var(--vav-rep);border:1px solid var(--vav-rep)} #vav-mt .pill.SR{background:var(--vav-rep-soft);color:var(--vav-rep);border:1px solid var(--vav-rep)}
+#vav-mt .lcount{margin-top:6px;display:grid;gap:2px;font-size:13px;font-variant-numeric:tabular-nums}
+#vav-mt .lcount div{display:flex;justify-content:space-between;gap:12px;max-width:260px}
+#vav-mt .lcount .focus{font-weight:700}
 #vav-mt .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
 #vav-mt .dot.D{background:var(--vav-dem)} #vav-mt .dot.R{background:var(--vav-rep)} #vav-mt .dot.I{background:var(--vav-ind)}
 #vav-mt .odds{display:grid;gap:4px;min-width:190px}
@@ -144,9 +150,10 @@
 
   var $ = function(s){ return root.querySelector('[data-el="'+s+'"]'); };
   var state = { data:null, results:{}, ch:"All", flips:false, q:"" };
-  var COOK = {"Toss Up":"TU","Lean D":"LD","Lean R":"LR","Likely D":"XD"};
-  var ORDER = {"Lean D":0,"Toss Up":1,"Lean R":2,"Likely D":3};
-  var CH_ORDER = ["Senate","Governor","House"];
+  var COOK = {"Toss Up":"TU","Lean D":"LD","Lean R":"LR","Likely D":"XD","Likely R":"XR","Solid R":"SR"};
+  var ORDER = {"Lean D":0,"Toss Up":1,"Lean R":2,"Likely D":3,"Likely R":4,"Solid R":5};
+  var CH_ORDER = ["Senate","Governor","House","Local"];
+  var CH_LABEL = {Local:"State & Local"};
 
   function el(tag, cls, txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
   function pct(x){ return (x*100).toFixed(x>=0.995||x<0.005?1:0)+"%"; }
@@ -242,23 +249,45 @@
     return td;
   }
   function lastName(n){ var p=String(n||"").trim().split(/\s+/); var l=p[p.length-1]; return /^(Jr\.?|Sr\.?|II|III|IV)$/i.test(l)&&p.length>1? p[p.length-2] : l; }
-  function liveRep(lv){ return (lv.rep? lv.rep+" · ":"")+"CA SOS "+fmtT(lv.at); }
+  function liveRep(lv){ return (lv.rep? lv.rep+" · ":"")+(lv.src||"CA SOS")+" "+fmtT(lv.at); }
+  // State & local races: nonpartisan or no market, so the row shows the live count for every candidate.
+  function localRow(r){
+    var tr=el("tr"), t1=el("td","race"); t1.appendChild(el("b",null,r.label));
+    t1.appendChild(el("small",null,(r.inc?"Incumbent "+r.inc:"")+(r.focus?" · Tracking "+r.focus:""))); tr.appendChild(t1);
+    var t2=el("td"); if(r.cook) t2.appendChild(el("span","pill "+(COOK[r.cook]||"TU"), r.cook)); else t2.appendChild(el("span","na","—")); tr.appendChild(t2);
+    var t3=el("td"); if(r.held==="D"||r.held==="R"){ t3.appendChild(el("span","dot "+r.held)); t3.appendChild(document.createTextNode(r.held)); } else t3.appendChild(el("span","na","Nonpartisan")); tr.appendChild(t3);
+    var t4=el("td"); t4.appendChild(el("span","na","No market")); tr.appendChild(t4);
+    var t5=el("td"); t5.appendChild(el("span","na","—")); tr.appendChild(t5);
+    var t6=el("td"), w=state.results[r.id], lv=r.live, txt, cls="na";
+    if(w){ txt=r.focus+(w==="W"?" won":" lost"); cls=w==="W"?"yes":"no"; }
+    else if(lv&&lv.c&&lv.c.length){ var lead=lv.c[0]; txt="Leading: "+lead.n; cls=lead.n===r.focus?"yes":((lead.p==="D"||lead.p==="R")?pcls(lead.p):""); }
+    else txt="Awaiting count";
+    var o=el("span",cls,txt); o.style.fontWeight="600"; o.style.fontSize="13px"; t6.appendChild(o);
+    if(lv&&lv.c&&lv.c.length){
+      var box=el("div","lcount");
+      lv.c.forEach(function(x){ var row=el("div",x.n===r.focus?"focus":null); row.appendChild(el("span",(x.p==="D"||x.p==="R")?pcls(x.p):null,x.n)); row.appendChild(el("span",null,(x.pct!=null?x.pct.toFixed(1):"—")+"%")); box.appendChild(row); });
+      t6.appendChild(box); t6.appendChild(el("div","na live-rep",liveRep(lv)));
+    }
+    tr.appendChild(t6);
+    return tr;
+  }
 
   function renderRaces(){
     var d=state.data, tb=$("races"); tb.replaceChildren();
     var q=state.q.trim().toLowerCase();
     var races=d.races.filter(function(r){ return state.ch==="All"||r.chamber===state.ch; });
-    if(state.flips) races=races.filter(function(r){ return projected(r).p!==r.held; });
+    if(state.flips) races=races.filter(function(r){ return r.chamber!=="Local"&&projected(r).p!==r.held; });
     if(q) races=races.filter(function(r){
       var names=[].concat(r.kalshi?r.kalshi.c:[], r.poll?r.poll.c:[]).map(function(x){return x.n;}).join(" ");
-      return (r.label+" "+r.id+" "+(r.inc||"")+" "+names).toLowerCase().indexOf(q)>=0; });
+      return (r.label+" "+r.id+" "+(r.inc||"")+" "+(r.cands||[]).join(" ")+" "+names).toLowerCase().indexOf(q)>=0; });
     if(!races.length){ var tr0=el("tr"), td0=el("td","vav-empty","No races match these filters."); td0.colSpan=6; tr0.appendChild(td0); tb.appendChild(tr0); return; }
     CH_ORDER.forEach(function(ch){
       var rs=races.filter(function(r){return r.chamber===ch;}).sort(function(a,b){ return ((ORDER[a.cook]||0)-(ORDER[b.cook]||0))||a.label.localeCompare(b.label); });
       if(!rs.length) return;
       var flips=rs.filter(function(r){return projected(r).p!==r.held;}).length;
-      var g=el("tr","grp"), gtd=el("td",null,ch); gtd.colSpan=6; gtd.appendChild(el("small",null,rs.length+" races · "+flips+" projected to flip")); g.appendChild(gtd); tb.appendChild(g);
+      var g=el("tr","grp"), gtd=el("td",null,CH_LABEL[ch]||ch); gtd.colSpan=6; gtd.appendChild(el("small",null,ch==="Local"? rs.length+" races · live county and state counts" : rs.length+" races · "+flips+" projected to flip")); g.appendChild(gtd); tb.appendChild(g);
       rs.forEach(function(r){
+        if(r.chamber==="Local"){ tb.appendChild(localRow(r)); return; }
         var tr=el("tr"), t1=el("td","race"); t1.appendChild(el("b",null,r.label)); t1.appendChild(el("small",null,r.inc||"")); tr.appendChild(t1);
         var t2=el("td"); t2.appendChild(el("span","pill "+(COOK[r.cook]||"TU"), r.cook)); tr.appendChild(t2);
         var t3=el("td"); t3.appendChild(el("span","dot "+r.held)); t3.appendChild(document.createTextNode(r.held)); tr.appendChild(t3);
