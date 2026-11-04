@@ -54,7 +54,7 @@
     <p>Races: every Cook Political Report Toss Up and Lean contest for Senate, House and Governor, plus CA-45 and Mississippi Senate. Kalshi odds are the midpoint of each market's bid and ask. Poll averages come from Silver Bulletin's FLIPR model; "—" means no market or polling average exists for that race.</p>
     <p>Projected seats: seats not on this list counted by Cook lean, plus each listed race's called result, else its Kalshi favorite, else its poll leader. Called results are added on election night. "Count" lines for California races and propositions are the Secretary of State's semi-official vote count; California counts ballots for weeks after Election Day.</p>
     <p>Live results: <a href="https://electionresults.sos.ca.gov/" target="_blank" rel="noopener">CA Secretary of State</a> · <a href="https://decisiondeskhq.com/" target="_blank" rel="noopener">Decision Desk HQ</a>. Sources: <a href="https://kalshi.com" target="_blank" rel="noopener">Kalshi</a> · <a href="https://www.natesilver.net/p/nate-silver-2026-midterm-election-polls-model" target="_blank" rel="noopener">Silver Bulletin</a> · <a href="https://www.cookpolitical.com/ratings" target="_blank" rel="noopener">Cook Political Report</a>.</p>
-    <p>State &amp; Local: CA Assembly District 70 (count from the CA Secretary of State) and the Garden Grove and Westminster City Council District 4 races (count from the <a href="https://ocvote.gov/results/current-election-results" target="_blank" rel="noopener">Orange County Registrar of Voters</a>). Counts refresh about every 10 minutes.</p>
+    <p>State &amp; Local: CA Assembly District 70 (count from the CA Secretary of State) and the Garden Grove and Westminster City Council District 4 races (count from the <a href="https://ocvote.gov/results/current-election-results" target="_blank" rel="noopener">Orange County Registrar of Voters</a>). Counts refresh about every 10 minutes. "Ballots left" is an estimate: the Registrar's countywide figure shared out by each race's portion of the ballots counted so far.</p>
     <p data-el="status"></p>
   </div>
 </div>
@@ -111,6 +111,7 @@
 #vav-mt .lcount{margin-top:6px;display:grid;gap:2px;font-size:13px;font-variant-numeric:tabular-nums}
 #vav-mt .lcount div{display:flex;justify-content:space-between;gap:12px;max-width:260px}
 #vav-mt .lcount .focus{font-weight:700}
+#vav-mt .prog{margin-top:6px;font-size:12.5px;color:var(--vav-warn)} #vav-mt .prog b{font-weight:600}
 #vav-mt .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
 #vav-mt .dot.D{background:var(--vav-dem)} #vav-mt .dot.R{background:var(--vav-rep)} #vav-mt .dot.I{background:var(--vav-ind)}
 #vav-mt .odds{display:grid;gap:4px;min-width:190px}
@@ -250,6 +251,16 @@
   }
   function lastName(n){ var p=String(n||"").trim().split(/\s+/); var l=p[p.length-1]; return /^(Jr\.?|Sr\.?|II|III|IV)$/i.test(l)&&p.length>1? p[p.length-2] : l; }
   function liveRep(lv){ return (lv.rep? lv.rep+" · ":"")+(lv.src||"CA SOS")+" "+fmtT(lv.at); }
+  // California keeps counting for weeks: say so, with the county's ballots-left estimate shared out to this race.
+  function progress(lv){
+    function fmtN(n){ return Number(n).toLocaleString("en-US"); }
+    if(!lv.inProgress) return [el("div","na live-rep",liveRep(lv))];
+    var a=el("div","prog");
+    a.appendChild(el("b",null,"Count still in progress"));
+    a.appendChild(document.createTextNode(lv.left? " · est. ~"+fmtN(lv.left.n)+" ballots left in this race" : " · county hasn't posted its ballots-left estimate yet"));
+    var b=el("div","na live-rep",(lv.src||"")+" count "+fmtT(lv.at)+(lv.left? " · estimate from OC Registrar's "+fmtN(lv.left.county)+" ballots left countywide, "+fmtT(lv.left.asOf) : ""));
+    return [a,b];
+  }
   // State & local races: nonpartisan or no market, so the row shows the live count for every candidate.
   function localRow(r){
     var tr=el("tr"), t1=el("td","race"); t1.appendChild(el("b",null,r.label));
@@ -266,7 +277,7 @@
     if(lv&&lv.c&&lv.c.length){
       var box=el("div","lcount");
       lv.c.forEach(function(x){ var row=el("div",x.n===r.focus?"focus":null); row.appendChild(el("span",(x.p==="D"||x.p==="R")?pcls(x.p):null,x.n)); row.appendChild(el("span",null,(x.pct!=null?x.pct.toFixed(1):"—")+"%")); box.appendChild(row); });
-      t6.appendChild(box); t6.appendChild(el("div","na live-rep",liveRep(lv)));
+      t6.appendChild(box); progress(lv).forEach(function(n){ t6.appendChild(n); });
     }
     tr.appendChild(t6);
     return tr;
