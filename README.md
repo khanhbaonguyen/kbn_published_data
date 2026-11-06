@@ -8,8 +8,8 @@ Public data files that Khanh Nguyen's websites read in the browser. Claude artif
 
 | Path | Used by | Contents |
 |---|---|---|
-| `midterms-2026/tracker.json` | vietamvote.org midterm result tracker page | Race odds, Cook ratings, poll averages, proposition odds and called results. Rewritten by the Midterms 2026 Tracker refresh. |
-| `vietamvote/midterms-2026-embed.html` | vietamvote.org (pasted into a Squarespace Code Block) | Read-only tracker page that fetches `midterms-2026/tracker.json` and re-checks it every 5 minutes |
+| `midterms-2026/tracker.json` | suoilo.com/2026-midterms-tracker (and the embed below) | Race odds, Cook ratings, poll averages, proposition odds and called results. Rewritten by the Midterms 2026 Tracker refresh. |
+| `vietamvote/midterms-2026-embed.html` | www.suoilo.com/2026-midterms-tracker (pasted into a Squarespace Code Block; the folder name is historical) | Read-only tracker page that fetches `midterms-2026/tracker.json` and re-checks it every 5 minutes |
 | `vietamvote/midterms-2026.json` | nothing (unused placeholder) | Superseded by `midterms-2026/tracker.json` |
 | `midterms-2026/ca-live.json` | the tracker page and embed | Live vote counts, written every 10 minutes by the "CA live results" GitHub Action |
 | `scripts/ca_live_build.py`, `scripts/ca_sos_live.py` | "CA live results" Action | CA Secretary of State counts for CA House (`H-CA-*`) and Assembly (`A-CA-*`) races and propositions |
