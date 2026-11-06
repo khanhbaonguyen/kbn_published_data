@@ -54,7 +54,7 @@
     <p>Races: every Cook Political Report Toss Up and Lean contest for Senate, House and Governor, plus CA-45 and Mississippi Senate. Kalshi odds are the midpoint of each market's bid and ask. Poll averages come from Silver Bulletin's FLIPR model; "—" means no market or polling average exists for that race.</p>
     <p>Projected seats: seats not on this list counted by Cook lean, plus each listed race's called result, else its Kalshi favorite, else its poll leader. Called results are added on election night. "Count" lines for California races and propositions are the Secretary of State's semi-official vote count; California counts ballots for weeks after Election Day.</p>
     <p>Live results: <a href="https://electionresults.sos.ca.gov/" target="_blank" rel="noopener">CA Secretary of State</a> · <a href="https://decisiondeskhq.com/" target="_blank" rel="noopener">Decision Desk HQ</a>. Sources: <a href="https://kalshi.com" target="_blank" rel="noopener">Kalshi</a> · <a href="https://www.natesilver.net/p/nate-silver-2026-midterm-election-polls-model" target="_blank" rel="noopener">Silver Bulletin</a> · <a href="https://www.cookpolitical.com/ratings" target="_blank" rel="noopener">Cook Political Report</a>.</p>
-    <p>State &amp; Local: CA Assembly District 70 (count from the CA Secretary of State) and the Garden Grove and Westminster City Council District 4 races (count from the <a href="https://ocvote.gov/results/current-election-results" target="_blank" rel="noopener">Orange County Registrar of Voters</a>). Counts refresh about every 10 minutes. "Ballots left" is an estimate: the Registrar's countywide figure shared out by each race's portion of the ballots counted so far.</p>
+    <p>State &amp; Local: CA Assembly District 70 (count from the CA Secretary of State) and the Garden Grove and Westminster City Council District 4 races (count from the <a href="https://ocvote.gov/results/current-election-results" target="_blank" rel="noopener">Orange County Registrar of Voters</a>). Counts refresh about every 10 minutes. "Ballots left" is an estimate: the Registrar's countywide figure shared out by each race's portion of the ballots counted so far. For two-candidate races, "Last batch" is how the most recent group of newly counted votes split, and "needs" is the share of the estimated remaining ballots the trailing candidate must win to pull ahead.</p>
     <p data-el="status"></p>
   </div>
 </div>
@@ -112,6 +112,7 @@
 #vav-mt .lcount div{display:flex;justify-content:space-between;gap:12px;max-width:260px}
 #vav-mt .lcount .focus{font-weight:700}
 #vav-mt .prog{margin-top:6px;font-size:12.5px;color:var(--vav-warn)} #vav-mt .prog b{font-weight:600}
+#vav-mt .trend{margin-top:2px;font-size:12.5px}
 #vav-mt .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
 #vav-mt .dot.D{background:var(--vav-dem)} #vav-mt .dot.R{background:var(--vav-rep)} #vav-mt .dot.I{background:var(--vav-ind)}
 #vav-mt .odds{display:grid;gap:4px;min-width:190px}
@@ -258,8 +259,17 @@
     var a=el("div","prog");
     a.appendChild(el("b",null,"Count still in progress"));
     a.appendChild(document.createTextNode(lv.left? " · est. ~"+fmtN(lv.left.n)+" ballots left in this race" : " · county hasn't posted its ballots-left estimate yet"));
+    var out=[a], t=trend(lv); if(t) out.push(el("div","trend",t));
     var b=el("div","na live-rep",(lv.src||"")+" count "+fmtT(lv.at)+(lv.left? " · estimate from OC Registrar's "+fmtN(lv.left.county)+" ballots left countywide, "+fmtT(lv.left.asOf) : ""));
-    return [a,b];
+    out.push(b); return out;
+  }
+  // Two-candidate races: how the latest batch split, and what the trailing candidate needs from what's left.
+  function trend(lv){
+    function fmtN(n){ return Number(n).toLocaleString("en-US"); }
+    var parts=[];
+    if(lv.batch&&lv.need&&lv.batch.sh[lv.need.n]!=null) parts.push("Last batch (+"+fmtN(lv.batch.n)+" votes): "+lastName(lv.need.n)+" "+lv.batch.sh[lv.need.n].toFixed(1)+"%");
+    if(lv.need) parts.push(lv.need.pct>100? lastName(lv.need.n)+" can't close the gap on the estimated ballots left" : lastName(lv.need.n)+" needs ~"+lv.need.pct.toFixed(1)+"% of ballots left to pull ahead");
+    return parts.join(" · ");
   }
   // State & local races: nonpartisan or no market, so the row shows the live count for every candidate.
   function localRow(r){

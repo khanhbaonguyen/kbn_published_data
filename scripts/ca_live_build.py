@@ -145,6 +145,28 @@ def main(argv):
             new["ocLeft"] = left
         summary += " left=" + json.dumps(left)
 
+    # Two-candidate races with a ballots-left estimate: how the latest batch of counted
+    # votes split ("batch", carried forward until the count changes again) and the share
+    # of the remaining ballots the trailing candidate needs to pull ahead ("need").
+    for rid, lv in list(new["races"].items()):
+        if not lv.get("left") or len(lv.get("c") or []) != 2:
+            continue
+        lv = dict(lv)
+        cur = {c["n"]: c["v"] for c in lv["c"]}
+        old_lv = prev.get("races", {}).get(rid) or {}
+        old = {c["n"]: c.get("v") for c in old_lv.get("c") or []}
+        if set(old) == set(cur) and all(isinstance(v, int) for v in old.values()) and old != cur:
+            diff = {n: cur[n] - old[n] for n in cur}
+            n = sum(diff.values())
+            if n > 0 and all(d >= 0 for d in diff.values()):
+                lv["batch"] = {"n": n, "at": lv.get("at"), "sh": {k: round(100 * d / n, 1) for k, d in diff.items()}}
+        elif old_lv.get("batch") and old == cur:
+            lv["batch"] = old_lv["batch"]
+        lead, trail = sorted(lv["c"], key=lambda c: -c["v"])
+        margin, rem = lead["v"] - trail["v"], lv["left"]["n"]
+        lv["need"] = {"n": trail["n"], "pct": round(100 * (rem + margin) / (2 * rem), 1)} if rem > 0 and margin > 0 else None
+        new["races"][rid] = lv
+
     if all(new.get(k) == prev.get(k) for k in ("races", "props", "ocLeft")):
         print("unchanged", summary)
         return 0
