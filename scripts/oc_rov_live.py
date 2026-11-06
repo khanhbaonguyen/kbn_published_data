@@ -5,7 +5,7 @@ Usage (from the repo root):
     python3 -I scripts/oc_rov_live.py "CONTEST TITLE" ["CONTEST TITLE" ...] [--allow-test] [--html FILE]
     python3 -I scripts/oc_rov_live.py --left [--left-html INDEX_FILE TOTAL_FILE]
 
---left reads the county's "What's Left to Process" pages instead and prints
+--left reads the county's "What's Left to Process" page and its left_total.php figure instead and prints
 {"left": {"total": n, "asOf": ISO, "src": url}} or {"left": null, "skipped": [...]}.
 Figures stamped before Nov 4, 2026 (left over from an earlier election) are ignored.
 
@@ -126,21 +126,24 @@ def parse(page: str, titles, allow_test: bool):
 
 
 LEFT_INDEX = "https://ocvote.gov/results/whats-left-to-count"
-LEFT_TOTAL = "https://ocvote.gov/results/whats-left-to-count/total-ballots-left-to-count"
-LEFT_HEADS = ["Vote-by-mail ballots received on or before Election Day", "Ballots From Drop Boxes Left to Process",
-              "Vote-by-Mail Returned at Vote Centers Left to Process", "Duplicated Ballot", "Eligible Ballots received after Election Day",
-              "Conditional Voter Registrations", "Final Drop Box Pickup Ballots", "RAVBM Ballots Left to Process"]
+LEFT_TOTAL = "https://ocvote.gov/bin/results/left_total.php"  # loaded by script on the Total Ballots Left page
 ELECTION_DAY_AFTER = datetime(2026, 11, 4, 0, 0, tzinfo=PACIFIC)
 
 
 def page_text(page: str) -> str:
-    body = page.split("</head>", 1)[-1]
+    body = page.split("</head>", 1)[-1] if "</head>" in page else page
     body = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", body)
     return re.sub(r"\s+", " ", htmllib.unescape(re.sub(r"<[^>]+>", " ", body))).strip()
 
 
-def parse_left(index_page: str, total_page: str):
-    """County-wide estimate of ballots left to process, or (None, reason)."""
+def parse_left(index_page: str, total_page: str, now: datetime | None = None):
+    """County-wide estimate of ballots left to process, or (None, reason).
+
+    index_page: the What's Left to Process page (for its "Last Update" stamp).
+    total_page: the county's left_total.php fragment, which the Total page loads by script, e.g.
+      "Total estimated number of ballots processed (after Election Day):\t94,010<p>Total Estimated Left to process:\t298,270<p>"
+    """
+    now = now or datetime.now(timezone.utc)
     it = page_text(index_page)
     m = re.search(r"Last Update:\s*(\d{1,2}/\d{1,2}/\d{4})\s+(\d{1,2}:\d{2})\s*([AP])\.?\s*M\.?", it, re.I)
     if not m:
@@ -148,26 +151,15 @@ def parse_left(index_page: str, total_page: str):
     when = datetime.strptime(f"{m.group(1)} {m.group(2)} {m.group(3).upper()}M", "%m/%d/%Y %I:%M %p").replace(tzinfo=PACIFIC)
     if when < ELECTION_DAY_AFTER:
         return None, f"What's Left page last updated {when.date()} (before this election)"
+    if when > now:  # the county has typed a future date; fall back to when we read it
+        when = now
     tt = page_text(total_page)
-    tt = tt[tt.find("Total Ballots Left to Process"):] if "Total Ballots Left to Process" in tt else tt
-    big = r"(\d{1,3}(?:,\d{3})+|\d{3,})"
-    total = None
-    m2 = re.search(r"(?:Grand Total|Total Ballots Left(?: to Process)?|Total)\s*[:\-]?\s*" + big + r"\b", tt.replace("Total Ballots Left to Process *IMPORTANT", "", 1), re.I)
-    if m2:
-        total = int(m2.group(1).replace(",", ""))
-    else:
-        low = tt.lower()
-        pos = sorted((low.find(h.lower()), h) for h in LEFT_HEADS if low.find(h.lower()) >= 0)
-        parts = []
-        for k, (i, h) in enumerate(pos):
-            end = pos[k + 1][0] if k + 1 < len(pos) else len(tt)
-            n = re.search(big, tt[i + len(h):end])
-            if n:
-                parts.append(int(n.group(1).replace(",", "")))
-        if parts:
-            total = sum(parts)
-    if not total:
-        return None, "What's Left page has no figures yet"
+    m2 = re.search(r"Total Estimated Left to process:?\s*(\d{1,3}(?:,\d{3})+|\d+)", tt, re.I)
+    if not m2:
+        return None, "left_total has no 'Total Estimated Left to process' figure yet"
+    total = int(m2.group(1).replace(",", ""))
+    if total <= 0:
+        return None, "county reports 0 ballots left"
     return {"total": total, "asOf": when.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "src": LEFT_INDEX}, None
 
 
