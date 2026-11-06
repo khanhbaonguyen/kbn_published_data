@@ -54,7 +54,7 @@
     <p>Races: every Cook Political Report Toss Up and Lean contest for Senate, House and Governor, plus CA-45 and Mississippi Senate. Kalshi odds are the midpoint of each market's bid and ask. Poll averages come from Silver Bulletin's FLIPR model; "—" means no market or polling average exists for that race.</p>
     <p>Projected seats: seats not on this list counted by Cook lean, plus each listed race's called result, else its Kalshi favorite, else its poll leader. Called results are added on election night. "Count" lines for California races and propositions are the Secretary of State's semi-official vote count; California counts ballots for weeks after Election Day.</p>
     <p>Live results: <a href="https://electionresults.sos.ca.gov/" target="_blank" rel="noopener">CA Secretary of State</a> · <a href="https://decisiondeskhq.com/" target="_blank" rel="noopener">Decision Desk HQ</a>. Sources: <a href="https://kalshi.com" target="_blank" rel="noopener">Kalshi</a> · <a href="https://www.natesilver.net/p/nate-silver-2026-midterm-election-polls-model" target="_blank" rel="noopener">Silver Bulletin</a> · <a href="https://www.cookpolitical.com/ratings" target="_blank" rel="noopener">Cook Political Report</a>.</p>
-    <p>State &amp; Local: CA Assembly District 70 (count from the CA Secretary of State), plus Westminster Mayor, Westminster City Council Districts 1 and 4, and Garden Grove City Council District 4 (counts from the <a href="https://ocvote.gov/results/current-election-results" target="_blank" rel="noopener">Orange County Registrar of Voters</a>). There are no prediction markets or poll averages for these races, so each shows every candidate's vote total and share of the count so far. Counts refresh about every 10 minutes. "Ballots left" is an estimate: the Registrar's countywide figure shared out by each race's portion of the ballots counted so far. For two-candidate races, "Last batch" is how the most recent group of newly counted votes split, and "needs" is the share of the estimated remaining ballots the trailing candidate must win to pull ahead.</p>
+    <p>State &amp; Local: CA Assembly District 70 (count from the CA Secretary of State), plus Westminster Mayor, Westminster City Council Districts 1 and 4, and Garden Grove City Council District 4 (counts from the <a href="https://ocvote.gov/results/current-election-results" target="_blank" rel="noopener">Orange County Registrar of Voters</a>). There are no prediction markets or poll averages for these races, so each shows every candidate's vote total and share of the count so far. Counts refresh about every 10 minutes. "Ballots left" is an estimate: the Registrar's countywide figure shared out by each race's portion of the ballots counted so far. "Last batch" is the most recent group of newly counted votes in that race and how many of them, and what share, went to the tracked candidate. For two-candidate races, "needs" is the share of the estimated remaining ballots the trailing candidate must win to pull ahead.</p>
     <p data-el="status"></p>
   </div>
 </div>
@@ -256,23 +256,28 @@
   function lastName(n){ var p=String(n||"").trim().split(/\s+/); var l=p[p.length-1]; return /^(Jr\.?|Sr\.?|II|III|IV)$/i.test(l)&&p.length>1? p[p.length-2] : l; }
   function liveRep(lv){ return (lv.rep? lv.rep+" · ":"")+(lv.src||"CA SOS")+" "+fmtT(lv.at); }
   // California keeps counting for weeks: say so, with the county's ballots-left estimate shared out to this race.
-  function progress(lv){
+  function progress(lv, focus){
     function fmtN(n){ return Number(n).toLocaleString("en-US"); }
     if(!lv.inProgress) return [el("div","na live-rep",liveRep(lv))];
     var a=el("div","prog");
     a.appendChild(el("b",null,"Count still in progress"));
     a.appendChild(document.createTextNode(lv.left? " · est. ~"+fmtN(lv.left.n)+" ballots left in this race" : " · county hasn't posted its ballots-left estimate yet"));
-    var out=[a], t=trend(lv); if(t) out.push(el("div","trend",t));
+    var out=[a]; trend(lv, focus).forEach(function(t){ out.push(el("div","trend",t)); });
     var b=el("div","na live-rep",(lv.src||"")+" count "+fmtT(lv.at)+(lv.left? " · estimate from OC Registrar's "+fmtN(lv.left.county)+" ballots left countywide, "+fmtT(lv.left.asOf) : ""));
     out.push(b); return out;
   }
-  // Two-candidate races: how the latest batch split, and what the trailing candidate needs from what's left.
-  function trend(lv){
+  // The most recent batch of counted votes for the tracked candidate (or, without one, the trailing
+  // candidate in a two-candidate race), and what the trailing candidate needs from what's left.
+  function trend(lv, focus){
     function fmtN(n){ return Number(n).toLocaleString("en-US"); }
-    var parts=[];
-    if(lv.batch&&lv.need&&lv.batch.sh[lv.need.n]!=null) parts.push("Last batch (+"+fmtN(lv.batch.n)+" votes): "+lastName(lv.need.n)+" "+lv.batch.sh[lv.need.n].toFixed(1)+"%");
-    if(lv.need) parts.push(lv.need.pct>100? lastName(lv.need.n)+" can't close the gap on the estimated ballots left" : lastName(lv.need.n)+" needs ~"+lv.need.pct.toFixed(1)+"% of ballots left to pull ahead");
-    return parts.join(" · ");
+    var lines=[], b=lv.batch, sh=b&&b.sh||{};
+    var who = focus&&sh[focus]!=null ? focus : (lv.need&&sh[lv.need.n]!=null ? lv.need.n : null);
+    if(b&&who){
+      var gain = b.d&&b.d[who]!=null ? "+"+fmtN(b.d[who])+" votes ("+sh[who].toFixed(1)+"%)" : sh[who].toFixed(1)+"%";
+      lines.push("Last batch"+(b.at?" ("+fmtT(b.at)+")":"")+": "+fmtN(b.n)+" new votes counted · "+who+" "+gain);
+    }
+    if(lv.need) lines.push(lv.need.pct>100? lastName(lv.need.n)+" can't close the gap on the estimated ballots left" : lastName(lv.need.n)+" needs ~"+lv.need.pct.toFixed(1)+"% of ballots left to pull ahead");
+    return lines;
   }
   // State & local races: nonpartisan or no market, so the row shows the live count for every candidate.
   function localRow(r){
@@ -292,7 +297,7 @@
       lv.c.forEach(function(x){ var row=el("div",x.n===r.focus?"focus":null); row.appendChild(el("span",(x.p==="D"||x.p==="R")?pcls(x.p):null,x.n));
         var vt=el("span","vt"); if(x.v!=null) vt.appendChild(el("b",null,Number(x.v).toLocaleString("en-US")+" votes"));
         vt.appendChild(el(x.v!=null?"i":"b",null,(x.pct!=null?x.pct.toFixed(1):"—")+"%")); row.appendChild(vt); box.appendChild(row); });
-      t6.appendChild(box); progress(lv).forEach(function(n){ t6.appendChild(n); });
+      t6.appendChild(box); progress(lv, r.focus).forEach(function(n){ t6.appendChild(n); });
     }
     if(state.ch!=="Local") t6.colSpan=3;
     tr.appendChild(t6);

@@ -46,6 +46,41 @@ def load(path, default):
         return default
 
 
+def add_batches(races, prev_races):
+    """Annotate races whose count is still in progress (in place).
+
+    "batch": the most recent group of newly counted votes, found by comparing this count
+    with the previous one: {"n": votes added, "at", "d": {name: votes gained},
+    "sh": {name: percent of the batch}}. It is carried forward while the count is
+    unchanged, and dropped when a count goes down (a correction) or the candidates change.
+    "need" (two-candidate races with a ballots-left estimate): the share of the estimated
+    remaining ballots the trailing candidate must win to pull ahead.
+    """
+    for rid, lv in list(races.items()):
+        if not lv.get("inProgress") or not lv.get("c"):
+            continue
+        lv = dict(lv)
+        cur = {c["n"]: c.get("v") for c in lv["c"]}
+        old_lv = prev_races.get(rid) or {}
+        old = {c["n"]: c.get("v") for c in old_lv.get("c") or []}
+        counts_ok = set(old) == set(cur) and all(isinstance(v, int) for v in [*old.values(), *cur.values()])
+        lv.pop("batch", None)
+        if counts_ok and old != cur:
+            diff = {k: cur[k] - old[k] for k in cur}
+            n = sum(diff.values())
+            if n > 0 and all(d >= 0 for d in diff.values()):
+                lv["batch"] = {"n": n, "at": lv.get("at"), "d": diff,
+                               "sh": {k: round(100 * d / n, 1) for k, d in diff.items()}}
+        elif old == cur and old_lv.get("batch"):
+            lv["batch"] = old_lv["batch"]
+        lv.pop("need", None)
+        if lv.get("left") and len(lv["c"]) == 2 and all(isinstance(v, int) for v in cur.values()):
+            lead, trail = sorted(lv["c"], key=lambda c: -c["v"])
+            margin, rem = lead["v"] - trail["v"], lv["left"]["n"]
+            lv["need"] = {"n": trail["n"], "pct": round(100 * (rem + margin) / (2 * rem), 1)} if rem > 0 and margin > 0 else None
+        races[rid] = lv
+
+
 def main(argv):
     allow_test = "--allow-test" in argv
     out_path = argv[argv.index("--out") + 1] if "--out" in argv else DEFAULT_OUT
@@ -136,8 +171,11 @@ def main(argv):
             lv = dict(lv)
             lv["inProgress"] = not final
             v = oc_votes.get(r["id"])
+            old_left = (prev.get("races", {}).get(r["id"]) or {}).get("left")
             if left and v and oc_ballots and not final:
                 lv["left"] = {"n": int(round(left["total"] * v / oc_ballots)), "county": left["total"], "asOf": left.get("asOf")}
+            elif old_left and not final:
+                lv["left"] = old_left  # county page failed to load this run: keep the last good estimate
             else:
                 lv.pop("left", None)
             new["races"][r["id"]] = lv
@@ -145,27 +183,7 @@ def main(argv):
             new["ocLeft"] = left
         summary += " left=" + json.dumps(left)
 
-    # Two-candidate races with a ballots-left estimate: how the latest batch of counted
-    # votes split ("batch", carried forward until the count changes again) and the share
-    # of the remaining ballots the trailing candidate needs to pull ahead ("need").
-    for rid, lv in list(new["races"].items()):
-        if not lv.get("left") or len(lv.get("c") or []) != 2:
-            continue
-        lv = dict(lv)
-        cur = {c["n"]: c["v"] for c in lv["c"]}
-        old_lv = prev.get("races", {}).get(rid) or {}
-        old = {c["n"]: c.get("v") for c in old_lv.get("c") or []}
-        if set(old) == set(cur) and all(isinstance(v, int) for v in old.values()) and old != cur:
-            diff = {n: cur[n] - old[n] for n in cur}
-            n = sum(diff.values())
-            if n > 0 and all(d >= 0 for d in diff.values()):
-                lv["batch"] = {"n": n, "at": lv.get("at"), "sh": {k: round(100 * d / n, 1) for k, d in diff.items()}}
-        elif old_lv.get("batch") and old == cur:
-            lv["batch"] = old_lv["batch"]
-        lead, trail = sorted(lv["c"], key=lambda c: -c["v"])
-        margin, rem = lead["v"] - trail["v"], lv["left"]["n"]
-        lv["need"] = {"n": trail["n"], "pct": round(100 * (rem + margin) / (2 * rem), 1)} if rem > 0 and margin > 0 else None
-        new["races"][rid] = lv
+    add_batches(new["races"], prev.get("races", {}))
 
     if all(new.get(k) == prev.get(k) for k in ("races", "props", "ocLeft")):
         print("unchanged", summary)
